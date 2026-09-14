@@ -50,3 +50,11 @@ La lista puede contener textos o diccionarios. Los diccionarios se serializan co
 ## Notas
 - `get_proof()` lanza `IndexError` si le pasas un índice que no existe.
 - Se utilizo Claude Opus 5 Alto para hacer las verificaciones del código y funcione para todos los posibles escenarios existentes.
+
+## Captura de pantalla del diagrama del arból 
+<img width="1016" height="595" alt="image" src="https://github.com/user-attachments/assets/78d88c41-bfca-40d0-895c-b8857fc01a5a" />
+## Captura de pantalla de las verificaciones 
+<img width="778" height="542" alt="image" src="https://github.com/user-attachments/assets/556dec7b-2072-48bc-8b6d-ec7ec85d5b09" />
+
+
+
