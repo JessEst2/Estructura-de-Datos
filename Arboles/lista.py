@@ -49,36 +49,6 @@ def listar_estudiantes(lista):
         print(estudiante)
 
 
-# generar los 10000 estudiantes
-estudiantes = generar_estudiantes()
-
-
-while True:
-
-    print("\n--- MENU ---")
-    print("1. Buscar estudiante")
-    print("2. Insertar estudiante")
-    print("3. Listar estudiantes")
-    print("4. Salir")
-
-    opcion = input("Seleccione una opción: ")
-
-    if opcion == "1":
-        buscar_estudiante(estudiantes)
-
-    elif opcion == "2":
-        insertar_estudiante(estudiantes)
-
-    elif opcion == "3":
-        listar_estudiantes(estudiantes)
-
-    elif opcion == "4":
-        print("Ha salido.")
-        break
-
-    else:
-        print("Opción inválida")
-
 #Tiempo de lista
 
 def medir_busquedas(estudiantes):
@@ -97,4 +67,36 @@ def medir_busquedas(estudiantes):
 
     print("Tiempo para 100 búsquedas:", fin - inicio, "segundos")
 
-medir_busquedas(estudiantes)
+
+if __name__ == "__main__":
+    # generar los 10000 estudiantes
+    estudiantes = generar_estudiantes()
+
+
+    while True:
+
+        print("\n--- MENU ---")
+        print("1. Buscar estudiante")
+        print("2. Insertar estudiante")
+        print("3. Listar estudiantes")
+        print("4. Salir")
+
+        opcion = input("Seleccione una opción: ")
+
+        if opcion == "1":
+            buscar_estudiante(estudiantes)
+
+        elif opcion == "2":
+            insertar_estudiante(estudiantes)
+
+        elif opcion == "3":
+            listar_estudiantes(estudiantes)
+
+        elif opcion == "4":
+            print("Ha salido.")
+            break
+
+        else:
+            print("Opción inválida")
+
+    medir_busquedas(estudiantes)

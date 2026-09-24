@@ -1,5 +1,9 @@
 #construccion arbol ABB
-from lista import estudiantes
+import random
+import time
+
+from lista import generar_estudiantes
+
 
 class Nodo:
     def __init__(self, estudiante):
@@ -7,58 +11,74 @@ class Nodo:
         self.izquierda = None
         self.derecha = None
 
+def insertar(raiz, estudiante):
+    nuevo = Nodo(estudiante)
+    if raiz is None:
+        return nuevo
 
-def insertar(nodo, estudiante):
-
-    if nodo is None:
-        return Nodo(estudiante)
-
-    if estudiante["id"] < nodo.estudiante["id"]:
-        nodo.izquierda = insertar(nodo.izquierda, estudiante)
-
-    else:
-        nodo.derecha = insertar(nodo.derecha, estudiante)
-
-    return nodo
-
-
-def buscar_abb(nodo, id_buscado):
-
-    if nodo is None:
-        return None
-
-    if nodo.estudiante["id"] == id_buscado:
-        return nodo.estudiante
-
-    elif id_buscado < nodo.estudiante["id"]:
-        return buscar_abb(nodo.izquierda, id_buscado)
-
-    else:
-        return buscar_abb(nodo.derecha, id_buscado)
+    actual = raiz
+    while True:
+        if estudiante["id"] < actual.estudiante["id"]:
+            if actual.izquierda is None:
+                actual.izquierda = nuevo
+                return raiz
+            actual = actual.izquierda
+        else:
+            if actual.derecha is None:
+                actual.derecha = nuevo
+                return raiz
+            actual = actual.derecha
 
 
+def buscar_abb(raiz, id_buscado):
+    actual = raiz
+    while actual is not None:
+        if actual.estudiante["id"] == id_buscado:
+            return actual.estudiante
+        elif id_buscado < actual.estudiante["id"]:
+            actual = actual.izquierda
+        else:
+            actual = actual.derecha
+    return None
 
-# construir el ABB
-raiz = None
 
-for estudiante in estudiantes:
-    raiz = insertar(raiz, estudiante)
+def altura(raiz):
+    """Altura calculada sin recursión (recorrido por niveles)."""
+    if raiz is None:
+        return 0
+    nivel, h = [raiz], 0
+    while nivel:
+        h += 1
+        nivel = [hijo for n in nivel for hijo in (n.izquierda, n.derecha) if hijo]
+    return h
 
 
-import time
-import random
+def construir_abb(estudiantes):
+    raiz = None
+    for estudiante in estudiantes:
+        raiz = insertar(raiz, estudiante)
+    return raiz
 
-def medir_busquedas_abb(raiz):
 
-    ids = random.sample(range(1,10001),100)
+def medir_busquedas_abb(raiz, cantidad_estudiantes):
+    ids = random.sample(range(1, cantidad_estudiantes + 1), 100)
 
-    inicio = time.time()
-
+    inicio = time.perf_counter()
     for i in ids:
         buscar_abb(raiz, i)
+    fin = time.perf_counter()
 
-    fin = time.time()
+    return fin - inicio
 
-    print("Tiempo ABB:", fin - inicio, "segundos")
 
-medir_busquedas_abb(raiz)
+if __name__ == "__main__":
+    estudiantes = generar_estudiantes()
+
+    # 2) Insertando en orden aleatorio: el ABB queda mucho más balanceado
+    mezclados = estudiantes[:]
+    random.shuffle(mezclados)
+    raiz_mezclada = construir_abb(mezclados)
+
+    n = len(estudiantes)
+    print("ABB con IDs mezclados:    altura", altura(raiz_mezclada),
+          f"| tiempo 100 búsquedas: {medir_busquedas_abb(raiz_mezclada, n):.6f} s")
