@@ -42,6 +42,22 @@ def buscar_abb(raiz, id_buscado):
     return None
 
 
+def recorrer_inorden(raiz):
+    """Devuelve los estudiantes ordenados por ID (izquierda -> nodo -> derecha).
+    Usa una pila en vez de recursión para no chocar con el límite de Python."""
+    resultado = []
+    pila = []
+    actual = raiz
+    while pila or actual is not None:
+        while actual is not None:      # bajar todo a la izquierda
+            pila.append(actual)
+            actual = actual.izquierda
+        actual = pila.pop()            # el menor pendiente
+        resultado.append(actual.estudiante)
+        actual = actual.derecha        # seguir con su subárbol derecho
+    return resultado
+
+
 def altura(raiz):
     """Altura calculada sin recursión (recorrido por niveles)."""
     if raiz is None:
