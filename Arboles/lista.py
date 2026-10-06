@@ -5,19 +5,42 @@ Insertar nuevos estudiantes
 Listar todos los estudiantes en orden por ID"""
 import time
 import random
-from faker import Faker
-def generar_estudiantes():
-    fake = Faker()
+
+NOMBRES = [
+    "Ana", "Luis", "María", "Carlos", "Sofía", "Andrés", "Valentina", "Juan",
+    "Camila", "Daniel", "Laura", "Santiago", "Isabella", "Mateo", "Gabriela",
+    "Sebastián", "Daniela", "Nicolás", "Mariana", "Felipe", "Paula", "Diego",
+    "Natalia", "Alejandro", "Sara", "Tomás", "Juliana", "David", "Lucía", "Samuel",
+]
+
+
+def generar_estudiantes(n=10000, orden="ordenado", semilla=None):
+    """
+    Crea una lista de n estudiantes.
+
+    n:       cuántos estudiantes crear.
+    orden:   "ordenado"  -> IDs en orden creciente: 1, 2, 3, ..., n
+             "aleatorio" -> los mismos IDs 1..n, pero revueltos
+    semilla: si se da un número, se generan siempre los mismos datos
+             (necesario para que el experimento sea reproducible).
+    """
+    if orden not in ("ordenado", "aleatorio"):
+        raise ValueError('orden debe ser "ordenado" o "aleatorio"')
+
+    rnd = random.Random(semilla)  # generador de azar propio, no afecta al resto del programa
+
+    ids = list(range(1, n + 1))
+    if orden == "aleatorio":
+        rnd.shuffle(ids)
+
     estudiantes = []
-
-    for i in range(1, 10001):
-        estudiante = {
-            "id": i,
-            "nombre": fake.first_name(),
-            "promedio": round(random.uniform(0, 10), 1)
-        }
-        estudiantes.append(estudiante)
-
+    for id_est in ids:
+        estudiantes.append({
+            "id": id_est,
+            "nombre": rnd.choice(NOMBRES),
+            "edad": rnd.randint(16, 30),
+            "promedio": round(rnd.uniform(0, 10), 1),
+        })
     return estudiantes
 
 
@@ -26,7 +49,7 @@ def buscar_estudiante(estudiantes):
 
     for estudiante in estudiantes:
         if estudiante["id"] == id_buscada:
-            print(f'ID: {estudiante["id"]} | Nombre: {estudiante["nombre"]} | Promedio: {estudiante["promedio"]}')
+            print(f'ID: {estudiante["id"]} | Nombre: {estudiante["nombre"]} | Edad: {estudiante["edad"]} | Promedio: {estudiante["promedio"]}')
             return
 
     print("Estudiante no encontrado")
@@ -35,11 +58,13 @@ def buscar_estudiante(estudiantes):
 def insertar_estudiante(estudiantes):
     id_est = len(estudiantes) + 1
     nombre = input("Ingrese nombre: ")
+    edad = int(input("Ingrese edad: "))
     promedio = float(input("Ingrese promedio: "))
 
     estudiantes.append({
         "id": id_est,
         "nombre": nombre,
+        "edad": edad,
         "promedio": promedio
     })
 

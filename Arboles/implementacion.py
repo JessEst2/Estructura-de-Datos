@@ -22,7 +22,7 @@ def construir_arbol(estudiantes, orden=ORDEN):
 
 
 def mostrar(estudiante):
-    print(f'ID: {estudiante["id"]} | Nombre: {estudiante["nombre"]} | Promedio: {estudiante["promedio"]}')
+    print(f'ID: {estudiante["id"]} | Nombre: {estudiante["nombre"]} | Edad: {estudiante["edad"]} | Promedio: {estudiante["promedio"]}')
 
 
 def pedir_entero(mensaje):
@@ -56,8 +56,9 @@ def buscar_estudiante(arbol):
 def insertar_estudiante(arbol, estudiantes):
     nuevo_id = (arbol.clave_maxima() or 0) + 1
     nombre = input("Ingrese nombre: ").strip()
+    edad = pedir_entero("Ingrese edad: ")
     promedio = pedir_promedio("Ingrese promedio: ")
-    estudiante = {"id": nuevo_id, "nombre": nombre, "promedio": promedio}
+    estudiante = {"id": nuevo_id, "nombre": nombre, "edad": edad, "promedio": promedio}
     arbol.insertar(nuevo_id, estudiante)
     estudiantes.append(estudiante)  # la lista también se mantiene al día
     print(f"Estudiante insertado con ID {nuevo_id}")
