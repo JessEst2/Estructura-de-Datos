@@ -153,6 +153,29 @@ def grafica_dispersion(mediciones, carpeta):
     guardar(fig, carpeta, "8_dispersion_busqueda.png")
 
 
+def grafica_estabilidad(mediciones, carpeta):
+    """Tiempo relativo (medición / mediana de su grupo) a lo largo del experimento."""
+    if "momento_min" not in mediciones.columns:
+        print("   (sin columna momento_min: se omite la gráfica de estabilidad)")
+        return
+    from analisis import tiempos_normalizados
+    d = tiempos_normalizados(mediciones).sort_values("momento_min")
+    fig, ax = plt.subplots(figsize=(9, 5.5))
+    ax.scatter(d["momento_min"], d["relativo"], s=6, alpha=0.25, color="tab:gray",
+               label="Cada medición de búsqueda")
+    tendencia = d["relativo"].rolling(max(len(d) // 40, 5), center=True).median()
+    ax.plot(d["momento_min"], tendencia, color="tab:purple", linewidth=2,
+            label="Mediana móvil (tendencia)")
+    ax.axhline(1, color="black", linestyle=":", label="1 = tiempo típico de su grupo")
+    ax.set_ylim(0, 3)
+    estilo(ax, "Estabilidad del computador durante el experimento",
+           "Momento de la medición (minutos desde el inicio)",
+           "Tiempo relativo (medición / mediana de su grupo)",
+           "Si el computador mantuvo la misma velocidad, la línea morada debe quedarse cerca de 1. "
+           "Valores por encima de 3 no se muestran.")
+    guardar(fig, carpeta, "9_estabilidad_en_el_tiempo.png")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--rapido", action="store_true")
@@ -183,6 +206,7 @@ def main():
                    "Tiempo del listado completo (ms, escala log)", "6_listar_vs_N.png")
     grafica_m(est_b, destino)
     grafica_dispersion(mediciones, destino)
+    grafica_estabilidad(mediciones, destino)
 
 
 if __name__ == "__main__":

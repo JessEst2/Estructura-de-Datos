@@ -145,6 +145,33 @@ def desde_que_n(est_a):
     return pd.DataFrame(filas)
 
 
+def tiempos_normalizados(datos):
+    """Divide cada tiempo de búsqueda por la mediana de su grupo (estructura, orden, N).
+    Un valor de 1 significa "igual a lo típico de su grupo"; 2 significa "el doble de lento".
+    Así se pueden comparar en una sola escala mediciones de estructuras y N muy distintos."""
+    d = datos[datos.experimento == "A_variar_N"].copy()
+    d["us"] = d["t_busqueda_s"] / d["M"] * 1e6
+    d["relativo"] = d["us"] / d.groupby(["estructura", "orden", "N"])["us"].transform("median")
+    return d
+
+
+def estabilidad(datos):
+    """¿Cambió la velocidad del computador durante el experimento?
+    Se divide la duración del experimento en 4 cuartos y se mira la mediana del tiempo
+    relativo en cada cuarto. Si el computador fue estable, todas deberían ser ≈ 1.
+    Además, correlación de Spearman entre el momento de la medición y el tiempo relativo
+    (cerca de 0 = no hay tendencia en el tiempo)."""
+    if "momento_min" not in datos.columns:
+        return None, None
+    d = tiempos_normalizados(datos)
+    d["cuarto"] = pd.cut(d["momento_min"], 4, labels=["1.º cuarto", "2.º cuarto", "3.º cuarto", "4.º cuarto"])
+    tabla = d.groupby("cuarto", observed=True).agg(
+        desde_min=("momento_min", "min"), hasta_min=("momento_min", "max"),
+        mediciones=("relativo", "size"), mediana_relativa=("relativo", "median")).reset_index()
+    rho, p = stats.spearmanr(d["momento_min"], d["relativo"])
+    return tabla, {"rho": rho, "p": p}
+
+
 # ----------------------------------------------------------------------
 # Experimento B: variar M
 # ----------------------------------------------------------------------
@@ -186,7 +213,8 @@ def tabla_md(df, columnas, nombres=None):
     return "\n".join(lineas)
 
 
-def escribir_resumen(carpeta, datos, est_a, pend, por_nivel, corr, cruce, est_b, pend_b):
+def escribir_resumen(carpeta, datos, est_a, pend, por_nivel, corr, cruce, est_b, pend_b,
+                     tabla_estab=None, spearman=None):
     with open(os.path.join(carpeta, "entorno.txt"), encoding="utf-8") as f:
         entorno = f.read()
 
@@ -194,6 +222,20 @@ def escribir_resumen(carpeta, datos, est_a, pend, por_nivel, corr, cruce, est_b,
               "Generado automáticamente por `analisis.py` a partir de `mediciones.csv`.\n",
               "## Entorno de la medición\n", "```\n" + entorno + "```\n",
               f"Total de mediciones: {len(datos)} filas.\n"]
+
+    partes.append("## Estabilidad del computador durante el experimento\n")
+    if tabla_estab is None:
+        partes.append("No disponible: el archivo de mediciones no tiene la columna `momento_min`.\n")
+    else:
+        partes.append("Tiempo de búsqueda de cada medición dividido por la mediana de su grupo "
+                      "(estructura, orden, N). Si el computador mantuvo la misma velocidad, la mediana "
+                      "de cada cuarto del experimento debe ser cercana a 1.\n")
+        partes.append(tabla_md(tabla_estab, ["cuarto", "desde_min", "hasta_min", "mediciones", "mediana_relativa"],
+                               ["Parte del experimento", "Desde (min)", "Hasta (min)", "Mediciones",
+                                "Mediana del tiempo relativo"]) + "\n")
+        partes.append(f"Correlación de Spearman entre el momento de la medición y el tiempo relativo: "
+                      f"ρ = {spearman['rho']:.3f} (p-valor = {spearman['p']:.3g}). "
+                      "Cerca de 0 = sin tendencia en el tiempo.\n")
 
     cols = ["curva", "N", "repeticiones", "media", "desv_estandar", "cv_%",
             "ic95_inf", "ic95_sup", "mediana", "atipicos", "media_sin_atipicos"]
@@ -255,11 +297,13 @@ def main():
     corr = correlacion_altura_tiempo(datos)
     cruce = desde_que_n(est_a)
     est_b, pend_b = estadisticas_b(datos)
+    tabla_estab, spearman = estabilidad(datos)
 
     est_a.to_csv(os.path.join(carpeta, "estadisticas_A.csv"), index=False)
     est_b.to_csv(os.path.join(carpeta, "estadisticas_B.csv"), index=False)
     pend.to_csv(os.path.join(carpeta, "pendientes.csv"), index=False)
-    escribir_resumen(carpeta, datos, est_a, pend, por_nivel, corr, cruce, est_b, pend_b)
+    escribir_resumen(carpeta, datos, est_a, pend, por_nivel, corr, cruce, est_b, pend_b,
+                     tabla_estab, spearman)
 
     print(f"Análisis guardado en {carpeta}/ (resumen.md, estadisticas_A.csv, estadisticas_B.csv, pendientes.csv)")
     print(f"Siguiente paso: python graficas.py{' --rapido' if args.rapido else ''}")

@@ -108,7 +108,16 @@ ESTRUCTURAS = {
 }
 
 COLUMNAS = ["experimento", "estructura", "orden", "N", "M", "repeticion",
-            "t_construccion_s", "t_busqueda_s", "t_listar_s", "altura", "encontrados"]
+            "t_construccion_s", "t_busqueda_s", "t_listar_s", "altura", "encontrados",
+            "momento_min"]
+
+# Momento en que arrancó el experimento: cada medición guarda cuántos minutos
+# habían pasado, para revisar después si el computador cambió de velocidad.
+INICIO_GLOBAL = time.perf_counter()
+
+
+def minutos_transcurridos():
+    return (time.perf_counter() - INICIO_GLOBAL) / 60
 
 
 # ----------------------------------------------------------------------
@@ -206,46 +215,55 @@ def calentamiento():
 
 
 def experimento_a(cfg, escritor, archivo):
-    """A) Varía N. M fijo. Datos ordenados y aleatorios."""
-    total = len(cfg["NS"]) * 2 * cfg["REPETICIONES"]
+    """A) Varía N. M fijo. Datos ordenados y aleatorios.
+
+    IMPORTANTE: en cada repetición las configuraciones (N, orden) se recorren en un
+    ORDEN ALEATORIO. Si se midieran en orden (primero todos los N=100, luego N=300...),
+    cualquier cambio de velocidad del computador durante el experimento (cambio de modo
+    de energía, otro programa, temperatura) quedaría mezclado con el efecto de N.
+    Mezclándolas, ese cambio afecta a todos los N por igual."""
+    configuraciones = [(n, orden) for n in cfg["NS"] for orden in ("ordenado", "aleatorio")]
+    total = len(configuraciones) * cfg["REPETICIONES"]
     hecho = 0
-    inicio = time.perf_counter()
-    for n in cfg["NS"]:
-        for orden in ("ordenado", "aleatorio"):
-            for rep in range(1, cfg["REPETICIONES"] + 1):
-                estudiantes = generar_estudiantes(n, orden, semilla=rep)
-                ids = ids_de_busqueda(n, cfg["M"], semilla=1_000_000 + rep)
+    for rep in range(1, cfg["REPETICIONES"] + 1):
+        mezcladas = configuraciones[:]
+        random.Random(5_000_000 + rep).shuffle(mezcladas)
+        for n, orden in mezcladas:
+            estudiantes = generar_estudiantes(n, orden, semilla=rep)
+            ids = ids_de_busqueda(n, cfg["M"], semilla=1_000_000 + rep)
 
-                for nombre in orden_de_estructuras(ESTRUCTURAS, semilla=rep):
-                    if nombre == "ABB" and orden == "ordenado" and n > cfg["MAX_N_ABB_ORDENADO"]:
-                        continue
-                    fila = medir(nombre, estudiantes, ids)
-                    fila.update(experimento="A_variar_N", estructura=nombre, orden=orden,
-                                N=n, M=cfg["M"], repeticion=rep)
-                    escritor.writerow(fila)
-                archivo.flush()
+            for nombre in orden_de_estructuras(ESTRUCTURAS, semilla=rep * 31 + n):
+                if nombre == "ABB" and orden == "ordenado" and n > cfg["MAX_N_ABB_ORDENADO"]:
+                    continue
+                fila = medir(nombre, estudiantes, ids)
+                fila.update(experimento="A_variar_N", estructura=nombre, orden=orden,
+                            N=n, M=cfg["M"], repeticion=rep, momento_min=minutos_transcurridos())
+                escritor.writerow(fila)
+            archivo.flush()
 
-                hecho += 1
-                transcurrido = time.perf_counter() - inicio
-                print(f"\r[A] N={n:>6} {orden:<9} rep {rep:>2}/{cfg['REPETICIONES']}"
-                      f"  ({hecho}/{total}, {transcurrido / 60:.1f} min)", end="", flush=True)
+            hecho += 1
+            print(f"\r[A] repetición {rep:>2}/{cfg['REPETICIONES']}  N={n:>6} {orden:<9}"
+                  f"  ({hecho}/{total}, {minutos_transcurridos():.1f} min)", end="", flush=True)
     print()
 
 
 def experimento_b(cfg, escritor, archivo):
-    """B) Varía M. N fijo. Datos aleatorios. (No se mide listar: no depende de M.)"""
+    """B) Varía M. N fijo. Datos aleatorios. (No se mide listar: no depende de M.)
+    Los valores de M también se recorren en orden aleatorio en cada repetición."""
     n = cfg["N_FIJO"]
     for rep in range(1, cfg["REPETICIONES"] + 1):
         estudiantes = generar_estudiantes(n, "aleatorio", semilla=rep)
-        for m in cfg["MS"]:
+        valores_m = list(cfg["MS"])
+        random.Random(6_000_000 + rep).shuffle(valores_m)
+        for m in valores_m:
             ids = ids_de_busqueda(n, m, semilla=2_000_000 + rep)
             for nombre in orden_de_estructuras(ESTRUCTURAS, semilla=rep * 7 + m):
                 fila = medir(nombre, estudiantes, ids, medir_listar=False)
                 fila.update(experimento="B_variar_M", estructura=nombre, orden="aleatorio",
-                            N=n, M=m, repeticion=rep)
+                            N=n, M=m, repeticion=rep, momento_min=minutos_transcurridos())
                 escritor.writerow(fila)
         archivo.flush()
-        print(f"\r[B] N={n} rep {rep:>2}/{cfg['REPETICIONES']}", end="", flush=True)
+        print(f"\r[B] N={n} repetición {rep:>2}/{cfg['REPETICIONES']}", end="", flush=True)
     print()
 
 
