@@ -1,14 +1,16 @@
-Fecha: 2026-10-06 13:09
+Fecha: 2026-10-07 10:42
 Sistema operativo: Windows-11-10.0.26200-SP0
 Procesador: AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD
 Núcleos lógicos: 16
 RAM: no disponible (anótala a mano)
 Python: 3.13.7 (CPython)
+Reloj: time.perf_counter (QueryPerformanceCounter()), resolución 1.0e-07 s
 Orden del árbol B+: 32
 NS: [100, 300, 1000, 3000, 10000, 30000, 100000]
 M: 1000
 MS: [100, 300, 1000, 3000, 10000]
 N_FIJO: 10000
-REPETICIONES: 30
+REPETICIONES: 20
+MINIMO_S: 1.0
 MAX_N_ABB_ORDENADO: 30000
 CARPETA: resultados
