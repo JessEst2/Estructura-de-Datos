@@ -1,0 +1,5 @@
+resultados_prueba/
+graficas_prueba/
+__pycache__/
+*.pyc
+log_experimento.txt
