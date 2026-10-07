@@ -20,7 +20,22 @@ import pandas as pd
 COLOR = {"Lista": "tab:red", "ABB": "tab:blue", "B+": "tab:green"}
 LINEA = {"aleatorio": "-", "ordenado": "--"}
 MARCA = {"aleatorio": "o", "ordenado": "s"}
-NOTA_IC = "Puntos = media de las repeticiones; barras = intervalo de confianza del 95 %."
+NOTA_IC = "Puntos = media de las repeticiones (cada una medida en una ventana de al menos 1 s); barras = IC del 95 %."
+
+
+# Las estadísticas vienen en µs (búsqueda, inserción) o ms (listar, experimento B).
+# Para las gráficas se convierten a SEGUNDOS. Las pendientes log-log no cambian al
+# cambiar de unidad, porque multiplicar por una constante solo sube o baja la recta.
+A_SEGUNDOS = {"busqueda": 1e-6, "insercion": 1e-6, "listar": 1e-3}
+COLUMNAS_TIEMPO = ["media", "ic95_inf", "ic95_sup", "mediana", "media_sin_atipicos"]
+
+
+def a_segundos(est):
+    est = est.copy()
+    factor = est["operacion"].map(A_SEGUNDOS)
+    for c in COLUMNAS_TIEMPO:
+        est[c] = est[c] * factor
+    return est
 
 
 def estilo(ax, titulo, eje_x, eje_y, nota=None):
@@ -63,7 +78,8 @@ def grafica_busqueda_lineal(est, carpeta, m):
     fig, ax = plt.subplots(figsize=(9, 5.5))
     curvas(ax, est, "busqueda")
     estilo(ax, f"Tiempo de búsqueda vs. número de estudiantes (escala lineal, M = {m})",
-           "N (número de estudiantes)", "Tiempo por búsqueda (µs)", NOTA_IC)
+           "N (número de estudiantes)", "Tiempo por búsqueda (s)", NOTA_IC)
+    ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))  # muestra ×10⁻³ arriba del eje
     guardar(fig, carpeta, "1_busqueda_vs_N_lineal.png")
 
 
@@ -103,7 +119,7 @@ def grafica_tiempo_vs_altura(est, carpeta):
     ax.set_xscale("log")
     ax.set_yscale("log")
     estilo(ax, "Tiempo de búsqueda vs. altura del árbol", "Altura del árbol (niveles, escala log)",
-           "Tiempo por búsqueda (µs, escala log)", "Cada punto es un valor de N (media de las repeticiones).")
+           "Tiempo por búsqueda (s, escala log)", "Cada punto es un valor de N (media de las repeticiones).")
     guardar(fig, carpeta, "4_tiempo_vs_altura.png")
 
 
@@ -117,8 +133,8 @@ def grafica_m(est_b, carpeta):
     ax.set_xscale("log")
     ax.set_yscale("log")
     n = int(est_b.N.iloc[0])
-    estilo(ax, f"Tiempo total de búsqueda vs. número de búsquedas M (N = {n}, IDs aleatorios)",
-           "M (número de búsquedas, escala log)", "Tiempo total de las M búsquedas (ms, escala log)", NOTA_IC)
+    estilo(ax, f"Tiempo de un lote de búsquedas vs. tamaño del lote M (N = {n}, IDs aleatorios)",
+           "M (número de búsquedas, escala log)", "Tiempo de un lote de M búsquedas (s, escala log)", NOTA_IC)
     guardar(fig, carpeta, "7_busqueda_vs_M.png")
 
 
@@ -127,11 +143,11 @@ def grafica_dispersion(mediciones, carpeta):
     a = mediciones[mediciones.experimento == "A_variar_N"].copy()
     n = 10000 if 10000 in a.N.values else a.N.max()
     a = a[a.N == n]
-    a["us"] = a["t_busqueda_s"] / a["M"] * 1e6
+    a["s"] = a["t_busqueda_s"] / a["M"]
     grupos, etiquetas, colores = [], [], []
     for estructura in ("Lista", "ABB", "B+"):
         for orden in ("ordenado", "aleatorio"):
-            g = a[(a.estructura == estructura) & (a.orden == orden)]["us"]
+            g = a[(a.estructura == estructura) & (a.orden == orden)]["s"]
             if len(g):
                 grupos.append(g.values)
                 etiquetas.append(f"{estructura}\n{orden}")
@@ -146,7 +162,7 @@ def grafica_dispersion(mediciones, carpeta):
     ax.set_title(f"Dispersión de las repeticiones del tiempo de búsqueda (N = {n})",
                  fontsize=12, fontweight="bold")
     ax.set_xlabel("Estructura y orden de inserción")
-    ax.set_ylabel("Tiempo por búsqueda (µs, escala log)")
+    ax.set_ylabel("Tiempo por búsqueda (s, escala log)")
     ax.grid(True, axis="y", which="both", alpha=0.3)
     fig.text(0.01, 0.01, "Caja = 50 % central (Q1 a Q3); línea = mediana; "
                          "círculos = atípicos según la regla 1.5·IQR.", fontsize=7.5, color="dimgray")
@@ -185,7 +201,10 @@ def main():
     os.makedirs(destino, exist_ok=True)
 
     est = pd.read_csv(os.path.join(origen, "estadisticas_A.csv"))
+    est = a_segundos(est)
     est_b = pd.read_csv(os.path.join(origen, "estadisticas_B.csv"))
+    for c in ["media", "ic95_inf", "ic95_sup"]:
+        est_b[c] = est_b[c] * 1e-3  # ms -> s
     pend = pd.read_csv(os.path.join(origen, "pendientes.csv"))
     mediciones = pd.read_csv(os.path.join(origen, "mediciones.csv"))
     m = int(mediciones[mediciones.experimento == "A_variar_N"].M.iloc[0])
@@ -194,16 +213,16 @@ def main():
     grafica_busqueda_lineal(est, destino, m)
     grafica_loglog(est, pend, destino, "busqueda",
                    f"Tiempo de búsqueda vs. N (escala log-log, M = {m})",
-                   "Tiempo por búsqueda (µs, escala log)", "2_busqueda_vs_N_loglog.png")
+                   "Tiempo por búsqueda (s, escala log)", "2_busqueda_vs_N_loglog.png")
     grafica_altura(est, destino)
     grafica_tiempo_vs_altura(est, destino)
     grafica_loglog(est, pend, destino, "insercion",
                    "Tiempo de inserción vs. N (escala log-log)",
-                   "Tiempo medio por inserción (µs, escala log)", "5_insercion_vs_N.png",
+                   "Tiempo medio por inserción (s, escala log)", "5_insercion_vs_N.png",
                    " Por inserción = tiempo de construir / N.")
     grafica_loglog(est, pend, destino, "listar",
                    "Tiempo de listar todos los estudiantes en orden vs. N (escala log-log)",
-                   "Tiempo del listado completo (ms, escala log)", "6_listar_vs_N.png")
+                   "Tiempo del listado completo (s, escala log)", "6_listar_vs_N.png")
     grafica_m(est_b, destino)
     grafica_dispersion(mediciones, destino)
     grafica_estabilidad(mediciones, destino)

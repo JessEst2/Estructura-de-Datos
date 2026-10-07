@@ -97,9 +97,15 @@ def pendientes(est_a):
         if len(g) < 3:
             continue
         reg = stats.linregress(np.log10(g["N"]), np.log10(g["media"]))
-        filas.append({"operacion": operacion, "curva": curva,
-                      "pendiente": reg.slope, "error_pendiente": reg.stderr,
-                      "r2": reg.rvalue ** 2, "N_min": g["N"].min(), "N_max": g["N"].max()})
+        fila = {"operacion": operacion, "curva": curva,
+                "pendiente": reg.slope, "error_pendiente": reg.stderr,
+                "r2": reg.rvalue ** 2, "N_min": g["N"].min(), "N_max": g["N"].max(),
+                "pendiente_altura": np.nan}
+        # En los árboles, una búsqueda cuesta ~ (costo por nivel) x (altura). Si el costo por
+        # nivel fuera constante, la pendiente del tiempo sería igual a la de la altura.
+        if operacion == "busqueda" and g["altura_media"].notna().all():
+            fila["pendiente_altura"] = stats.linregress(np.log10(g["N"]), np.log10(g["altura_media"])).slope
+        filas.append(fila)
     return pd.DataFrame(filas)
 
 
@@ -172,15 +178,36 @@ def estabilidad(datos):
     return tabla, {"rho": rho, "p": p}
 
 
+def duracion_ventanas(datos):
+    """Cuánto duró cada ventana de medición (guía de benchmarking: al menos 1 segundo)."""
+    if "ventana_busqueda_s" not in datos.columns:
+        return None
+    filas = []
+    casos = [("A_variar_N", "Construir (insertar N)", "ventana_construccion_s"),
+             ("A_variar_N", "Buscar", "ventana_busqueda_s"),
+             ("A_variar_N", "Listar", "ventana_listar_s"),
+             ("B_variar_M", "Buscar (exp. B)", "ventana_busqueda_s")]
+    for experimento, operacion, columna in casos:
+        d = datos[datos.experimento == experimento].dropna(subset=[columna])
+        if d.empty:
+            continue
+        v = d[columna]
+        filas.append({"operacion": operacion, "mediciones": len(v),
+                      "minimo_exigido_s": d["minimo_s"].iloc[0],
+                      "ventana_min_s": v.min(), "ventana_mediana_s": v.median(), "ventana_max_s": v.max(),
+                      "cumplen_%": 100 * (v >= d["minimo_s"] * 0.999).mean()})
+    return pd.DataFrame(filas)
+
+
 # ----------------------------------------------------------------------
 # Experimento B: variar M
 # ----------------------------------------------------------------------
 def estadisticas_b(datos):
     d = datos[datos.experimento == "B_variar_M"].copy()
-    d["valor"] = d["t_busqueda_s"] * 1e3  # ms totales para las M búsquedas
+    d["valor"] = d["t_busqueda_s"] * 1e3  # ms por lote de M búsquedas
     filas = []
     for (estructura, m), g in d.groupby(["estructura", "M"]):
-        fila = {"estructura": estructura, "N": g["N"].iloc[0], "M": m, "unidad": "ms totales"}
+        fila = {"estructura": estructura, "N": g["N"].iloc[0], "M": m, "unidad": "ms por lote de M búsquedas"}
         fila.update(resumir(g["valor"]))
         filas.append(fila)
     est_b = pd.DataFrame(filas)
@@ -214,7 +241,7 @@ def tabla_md(df, columnas, nombres=None):
 
 
 def escribir_resumen(carpeta, datos, est_a, pend, por_nivel, corr, cruce, est_b, pend_b,
-                     tabla_estab=None, spearman=None):
+                     tabla_estab=None, spearman=None, ventanas=None):
     with open(os.path.join(carpeta, "entorno.txt"), encoding="utf-8") as f:
         entorno = f.read()
 
@@ -222,6 +249,17 @@ def escribir_resumen(carpeta, datos, est_a, pend, por_nivel, corr, cruce, est_b,
               "Generado automáticamente por `analisis.py` a partir de `mediciones.csv`.\n",
               "## Entorno de la medición\n", "```\n" + entorno + "```\n",
               f"Total de mediciones: {len(datos)} filas.\n"]
+
+    partes.append("## Duración de las ventanas de medición\n")
+    if ventanas is None:
+        partes.append("No disponible: estas mediciones no registran la duración de las ventanas.\n")
+    else:
+        partes.append("Cada medición repite la operación hasta acumular al menos el mínimo exigido; "
+                      "las tablas siguientes reportan el tiempo de UNA operación (total / repeticiones).\n")
+        partes.append(tabla_md(ventanas, ["operacion", "mediciones", "minimo_exigido_s", "ventana_min_s",
+                                          "ventana_mediana_s", "ventana_max_s", "cumplen_%"],
+                               ["Operación", "Mediciones", "Mínimo exigido (s)", "Ventana mínima (s)",
+                                "Ventana mediana (s)", "Ventana máxima (s)", "% que cumple"]) + "\n")
 
     partes.append("## Estabilidad del computador durante el experimento\n")
     if tabla_estab is None:
@@ -250,8 +288,13 @@ def escribir_resumen(carpeta, datos, est_a, pend, por_nivel, corr, cruce, est_b,
     partes.append("Pendiente k de la recta log10(tiempo) vs log10(N). "
                   "k≈1 indica O(N); k≈0 indica crecimiento muy lento (O(log N) u O(1)).\n")
     partes.append(tabla_md(pend.sort_values(["operacion", "curva"]),
-                           ["operacion", "curva", "pendiente", "error_pendiente", "r2", "N_min", "N_max"],
-                           ["Operación", "Estructura", "Pendiente k", "Error de k", "R²", "N mín", "N máx"]) + "\n")
+                           ["operacion", "curva", "pendiente", "error_pendiente", "r2", "N_min", "N_max",
+                            "pendiente_altura"],
+                           ["Operación", "Estructura", "Pendiente k", "Error de k", "R²", "N mín", "N máx",
+                            "Pendiente de la altura"]) + "\n")
+    partes.append("La última columna (solo árboles, búsqueda) es la pendiente log-log de la altura media. "
+                  "Si cada nivel costara siempre lo mismo, la pendiente del tiempo sería igual a esa. "
+                  "Si es mayor, cada nivel se vuelve más caro al crecer N.\n")
 
     partes.append("## Altura del árbol y tiempo de búsqueda\n")
     partes.append(tabla_md(por_nivel.sort_values(["curva", "N"]),
@@ -269,13 +312,13 @@ def escribir_resumen(carpeta, datos, est_a, pend, por_nivel, corr, cruce, est_b,
                             "N donde el árbol es más lento", "N máx comparado",
                             "Veces más rápido en ese N"]) + "\n")
 
-    partes.append(f"## Experimento B — variar M (N = {int(est_b.N.iloc[0])}, datos aleatorios, ms totales)\n")
+    partes.append(f"## Experimento B — variar M (N = {int(est_b.N.iloc[0])}, datos aleatorios, ms por lote de M búsquedas)\n")
     partes.append(tabla_md(est_b.sort_values(["estructura", "M"]),
                            ["estructura", "M", "repeticiones", "media", "desv_estandar", "cv_%",
                             "ic95_inf", "ic95_sup", "atipicos"],
                            ["Estructura", "M", "Rep.", "Media", "Desv. est.", "CV %",
                             "IC95 inf", "IC95 sup", "Atípicos"]) + "\n")
-    partes.append("Pendiente log-log del tiempo total contra M (se espera ≈1: el doble de búsquedas, el doble de tiempo):\n")
+    partes.append("Pendiente log-log del tiempo de un lote contra M (se espera ≈1: el doble de búsquedas, el doble de tiempo):\n")
     partes.append(tabla_md(pend_b, ["estructura", "pendiente_vs_M", "r2"], ["Estructura", "Pendiente", "R²"]) + "\n")
 
     with open(os.path.join(carpeta, "resumen.md"), "w", encoding="utf-8") as f:
@@ -298,12 +341,13 @@ def main():
     cruce = desde_que_n(est_a)
     est_b, pend_b = estadisticas_b(datos)
     tabla_estab, spearman = estabilidad(datos)
+    ventanas = duracion_ventanas(datos)
 
     est_a.to_csv(os.path.join(carpeta, "estadisticas_A.csv"), index=False)
     est_b.to_csv(os.path.join(carpeta, "estadisticas_B.csv"), index=False)
     pend.to_csv(os.path.join(carpeta, "pendientes.csv"), index=False)
     escribir_resumen(carpeta, datos, est_a, pend, por_nivel, corr, cruce, est_b, pend_b,
-                     tabla_estab, spearman)
+                     tabla_estab, spearman, ventanas)
 
     print(f"Análisis guardado en {carpeta}/ (resumen.md, estadisticas_A.csv, estadisticas_B.csv, pendientes.csv)")
     print(f"Siguiente paso: python graficas.py{' --rapido' if args.rapido else ''}")
