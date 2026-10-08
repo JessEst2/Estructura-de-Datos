@@ -62,7 +62,7 @@ Para probar el sistema interactivo: `python implementacion.py`.
 
 Ver `resultados/entorno.txt` (lo genera `experimento.py` automáticamente).
 
-- **Procesador:** AMD Ryzen serie 5000 para portátiles (AMD64 Family 25 Model 80), 16 núcleos lógicos. <Completar modelo exacto: Administrador de tareas → Rendimiento → CPU>
+- **Procesador:** AMD Ryzen serie 5000 para portátiles (AMD64 Family 25 Model 80), 16 núcleos lógicos. 
 - **RAM:** 16 GB
 - **Sistema operativo:** Windows 11 (compilación 26200)
 - **Python:** 3.13.7 (CPython); librerías: numpy, pandas, scipy, matplotlib.
