@@ -147,7 +147,7 @@ muchas veces, que es el caso de un sistema de logística. Además, ese número s
 
 ## Uso de IA
 
-Se utilizo IA para generar el analisis estadistico de los resultados y gráficas, verificar el codigo creado para el QuadTree y ayudar a redactar este README.
+Se utilizo IA para generar el análisis estadístico de los resultados y gráficas, verificar el código creado para el QuadTree y ayudar a redactar este README.
 
 ## Webgrafía
 
