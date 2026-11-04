@@ -63,12 +63,12 @@ class Quadtree:
         self.nw = Quadtree(Rectangulo(b.x_min, my, mx, b.y_max),self.capacidad, prof)
         self.ne = Quadtree(Rectangulo(mx, my, b.x_max, b.y_max),self.capacidad, prof)
         self.sw = Quadtree(Rectangulo(b.x_min,b.y_min,mx,my),self.capacidad, prof)
-        self.ne = Quadtree(Rectangulo(mx,b.y_min,b.x_max,my),self.capacidad, prof)
+        self.se = Quadtree(Rectangulo(mx,b.y_min,b.x_max,my),self.capacidad, prof)
         self.dividido = True
 
 
         # los puntos que tenia esta hoja bajan a los hijos 
-
+        hijos = self.hijos()
         viejos = self.puntos
         self.puntos = []
         for p in viejos:
